@@ -7,11 +7,17 @@ $(document).ready(() => {
       this.deviceId = deviceId;
       this.latitude = null;
       this.longitude = null;
+      this.energy = null;
+      this.speed = null;
+      this.height = null;
     }
 
-    updateData(latitude, longitude) {
+    updateData(latitude, longitude, energy, speed, height) {
       this.latitude = latitude;
       this.longitude = longitude;
+      this.energy = energy;
+      this.speed = speed;
+      this.height = height;
     }
   }
 
@@ -51,12 +57,10 @@ $(document).ready(() => {
   const markers = {};
 
   function updateMap(device) {
-    // Solo cambiar el zoom si la variable shouldZoom es verdadera
     if (shouldZoom) {
-      map.setView([device.latitude, device.longitude], 17); // Ajusta el zoom según sea necesario
+      map.setView([device.latitude, device.longitude], 17);
     }
 
-    // Actualizar la posición del marcador en el mapa
     if (markers[device.deviceId]) {
       markers[device.deviceId].setLatLng([device.latitude, device.longitude]);
     } else {
@@ -69,16 +73,18 @@ $(document).ready(() => {
     const deviceInfoContainer = document.getElementById('deviceInfo');
     if (deviceInfoContainer) {
       deviceInfoContainer.innerHTML = `
-      <p><span class="icon"><i class="fas fa-location-arrow"></i></span><span class="key">Device ID: </span> ${device.deviceId}</p>
-      <p><span class="icon"><i class="fas fa-map-marker-alt"></i></span><span class="key">Latitude: </span> ${device.latitude}</p>
-      <p><span class="icon"><i class="fas fa-map-marker-alt"></i></span><span class="key">Longitude: </span> ${device.longitude}</p>
+        <p><span class="icon"><i class="fas fa-location-arrow"></i></span><span class="key">Device ID: </span> ${device.deviceId}</p>
+        <p><span class="icon"><i class="fas fa-map-marker-alt"></i></span><span class="key">Latitude: </span> ${device.latitude}</p>
+        <p><span class="icon"><i class="fas fa-map-marker-alt"></i></span><span class="key">Longitude: </span> ${device.longitude}</p>
+        <p><span class="icon"><i class="fas fa-battery-three-quarters"></i></span><span class="key">Energy: </span> ${device.energy}</p>
+        <p><span class="icon"><i class="fas fa-tachometer-alt"></i></span><span class="key">Speed: </span> ${device.speed}</p>
+        <p><span class="icon"><i class="fas fa-arrows-alt-v"></i></span><span class="key">Height: </span> ${device.height}</p>
       `;
     } else {
       console.error('Device info container not found');
     }
   }
 
-  // Manejar el mensaje WebSocket
   webSocket.onmessage = function(event) {
     try {
       const messageData = JSON.parse(event.data);
@@ -92,11 +98,23 @@ $(document).ready(() => {
       let newDevice = false;
 
       if (existingDeviceData) {
-        existingDeviceData.updateData(messageData.IotData.Latitude, messageData.IotData.Longitude);
+        existingDeviceData.updateData(
+          messageData.IotData.Latitude,
+          messageData.IotData.Longitude,
+          messageData.IotData.Energy,
+          messageData.IotData.Speed,
+          messageData.IotData.Height
+        );
       } else {
         const newDeviceData = new DeviceData(messageData.DeviceId);
         trackedDevices.devices.push(newDeviceData);
-        newDeviceData.updateData(messageData.IotData.Latitude, messageData.IotData.Longitude);
+        newDeviceData.updateData(
+          messageData.IotData.Latitude,
+          messageData.IotData.Longitude,
+          messageData.IotData.Energy,
+          messageData.IotData.Speed,
+          messageData.IotData.Height
+        );
         existingDeviceData = newDeviceData;
         newDevice = true;
       }
@@ -111,30 +129,19 @@ $(document).ready(() => {
         listOfDevices.appendChild(option);
       }
 
-      // Si solo hay un dispositivo, hacer zoom automáticamente
-      if (numDevices === 1) {
-        shouldZoom = true;
-        updateMap(existingDeviceData);  // Esto realizará el zoom en el único dispositivo
-        updateDeviceInfo(existingDeviceData);
-      } else {
-        // No hacer zoom si no es el cambio de selección en el desplegable
-        shouldZoom = false;
-        updateMap(existingDeviceData);
-        updateDeviceInfo(existingDeviceData);
-      }
+      shouldZoom = (numDevices === 1);
+      updateMap(existingDeviceData);
+      updateDeviceInfo(existingDeviceData);
     } catch (err) {
       console.error(err);
     }
   };
 
-  // Manejar el cambio en el desplegable
   listOfDevices.addEventListener('change', function() {
     const selectedDeviceId = this.value;
     const selectedDevice = trackedDevices.findDevice(selectedDeviceId);
     if (selectedDevice) {
-      // Establecer shouldZoom en true solo cuando el usuario cambie la selección
       shouldZoom = true;
-      // Actualizar el mapa y la información del dispositivo
       updateMap(selectedDevice);
       updateDeviceInfo(selectedDevice);
     }
